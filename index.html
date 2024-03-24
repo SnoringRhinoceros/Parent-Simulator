@@ -1,0 +1,132 @@
+<html>
+  <title>Parent Simulator</title>
+<body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, intial-scale=1.0">
+</head>
+<style>
+  .circle-timer {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .circle-background, .circle-remaining {
+    position: absolute;
+    width:100%;
+    height:100%;
+    border-radius: 50%;
+  }
+  .circle-remaining {
+    background-color: #4CAf50;
+    transform: rotate(0deg);
+  }
+  .timer-text {
+    position: absolute;
+    z-index: 2;
+    font-size: 2em;
+    color: black;
+  }
+</style>
+<img src ="static/parentsimulator.png" width="100px" height="100px">
+
+<button id="startRecord">Start Recording</button>
+<br>
+<b>The parent says:</b> <p id="transcription"></p>
+<br>
+<b>The "Good" child responds (Takes about 1 minute): </b><h1><p id="response"></p></h1>
+<div class="circle-timer">
+  <div class="circle-background"></div>
+  <div class="circle-remaining"></div>
+  <div class="timer-text">0s</div>
+</div>
+<script> 
+  let timer = null;
+  let remainingTime = 60;
+  let initialTime = 60;
+
+  let mediaRecorder;
+  let audioChunks = [];
+  let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+  
+  function updateCircle() {
+    const circle = document.querySelector('.circle-remaining');
+    const angle = (1 - remainingTime / initialTime) * 360;
+    console.log(angle);
+    const timerText = document.querySelector('.timer-text');
+    timerText.textContent = `${remainingTime}s`;
+    circle.style.background = 'linear-gradient(' + (angle) + '#f3f3f3 50%, transparent 50%)';
+ }
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = event => {
+        audioChunks.push(event.data);
+      };
+      mediaRecorder.onstop = () => {
+        clearTimeout(stopRecord);
+        let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        console.log("Sending audio to server");
+        sendAudioToServer(audioBlob);
+      }});
+
+  document.getElementById("startRecord").onclick = () => {
+    mediaRecorder.start();
+    clearInterval(timer);
+    remainingTime = 60;
+    timer = setInterval(function() {
+      remainingTime--;
+      updateCircle();
+      if (remainingTime <=0)
+      {
+        clearInterval(timer);
+      }
+    },1000);
+    document.getElementById('transcription').textContent = 'Listening for prompt';
+    document.getElementById('response').textContent = '';
+    document.getElementById("startRecord").disabled = true;
+    stopRecord = setTimeout(() => {
+                mediaRecorder.stop(); // Stop recording after 4 seconds
+                document.getElementById('transcription').textContent = 'Processing audio';
+		            document.getElementById('response').textContent = 'Thinking...';        
+                document.getElementById("startRecord").disabled = true;   
+                console.log('Stopped recording')  
+            }, 4000); // 4000 milliseconds = 4 seconds
+  };
+
+  function sendAudioToServer(audioBlob) {
+    const formData = new FormData();
+    formData.append('audioFile', audioBlob);
+    let error = null;
+    fetch('http://127.0.0.1:8080/upload_audio', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+                document.getElementById('transcription').textContent = data.transcript;
+                const AIformData = new FormData();
+                AIformData.append('prompt', document.getElementById('transcription').textContent);
+                fetch('http://127.0.0.1:8080/process_response', {
+                    method: 'POST',
+                    body: AIformData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                            document.getElementById('response').textContent = data.response;
+                            document.getElementById("startRecord").disabled = false;  
+                            clearInterval(timer);
+                        })  
+                .catch(error => console.error('Error:', error));
+                })  
+    .catch(error => console.error('Error:', error));
+
+}
+
+</script>
+</body>
+</html>
