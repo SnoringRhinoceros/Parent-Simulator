@@ -72,6 +72,7 @@
         let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
         console.log("Sending audio to server");
         sendAudioToServer(audioBlob);
+        audioChunks = [];
       }});
 
   document.getElementById("startRecord").onclick = () => {
@@ -102,7 +103,7 @@
     const formData = new FormData();
     formData.append('audioFile', audioBlob);
     let error = null;
-    fetch('http://127.0.0.1:8080/upload_audio', {
+    fetch('http://127.0.0.1:5000/upload_audio', {
         method: 'POST',
         body: formData,
     })
@@ -111,7 +112,7 @@
                 document.getElementById('transcription').textContent = data.transcript;
                 const AIformData = new FormData();
                 AIformData.append('prompt', document.getElementById('transcription').textContent);
-                fetch('http://127.0.0.1:8080/process_response', {
+                fetch('http://127.0.0.1:5000/process_response', {
                     method: 'POST',
                     body: AIformData,
                 })

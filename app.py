@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import whisper
-import gpt4all
+import ollama
 import datetime
 
 app = Flask(__name__)
@@ -20,6 +20,7 @@ def upload_audio():
         file.save(audio_path) 
         print("[+] " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + "  Transcribing Audio")
         result = model.transcribe(audio_path)
+        print("Result is: ", result)
         return jsonify({'message': f'File {file.filename} uploaded successfully.', 'transcript': f'{result["text"]}'}), 200         
 
 @app.route('/process_response', methods=['POST'])
@@ -32,30 +33,30 @@ def process_response():
   
         print("[+] " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + " Submitting prompt: " + prompt)       
         print("[+]  " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + " Loading model")
-        LLMmodel = gpt4all.GPT4All("mistral-7b-openorca.Q4_0.gguf", allow_download=False)       
-# You are a casual pal, genuinely interested in the conversation at hand with someone talking to their parent.    
         superprompt = f"""
-You are a child, genuinely interested in the conversation with their parent. Give a polite and apologetic response to the conversation to all commands. Thank the parent for being helpful. Confidently give a straightforward response to the parent, even if you don't understand them. DO NOT ask to repeat, and DO NOT ask for clarification. Just answer the parent directly without continuing the conversation. Do not lie or make up context.
-A poor transcription of conversation is given below. The output should only have the child response in square brackets.
-
-Parent: "You should have focused on your studies instead."
-Child: [Thank you for the advice. I will try to manage my time better next time. I love you.]
-
-Parent: "asdkadajskdjlak"
-Child: [I'm not sure I understood, but I'll do my best.]
-
-Parent: "{prompt}"
-Child: 
+prompt:  You are a child, genuinely interested in the conversation with their parent. Do not specify their name explicitly. Give a polite and apologetic response to the conversation to all commands. A poor transcript is given, so give a confident straightforward answer even if the message is not understood. Parent: "{prompt}"
 """
 
         print("[+]  " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + " Processing response in AI with ####\n" + superprompt + "\n####\n")
+ 
         if prompt == "":
         	AIresponse = "[I'm not sure I understood, but I'll do my best.]"
         else:
-        	AIresponse = LLMmodel.generate(superprompt)
+        	response = ollama.chat(model='llama3', options=dict(num_tokens=100, temperature=0), messages=[
+		  {
+		    'role': 'user',
+		    'content': superprompt,
+		  },
+		]) 
+		
+        	print(response['message']['content'])
+        	try:
+        	    AIresponse = response['message']['content']
+        	except:
+        	    AIresponse = "Sorry. I don't understand."
         print("[+] " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + AIresponse)
         print("[+] " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + "Completed!")
-
+	
         return jsonify({'message': f'Finished AI processing', 'transcript': f'{prompt}', 'response': f'{AIresponse}'}), 200         
 
 
