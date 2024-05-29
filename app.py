@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import whisper
 import ollama
 import datetime
+import time
 
 app = Flask(__name__)
 
@@ -21,7 +22,17 @@ def upload_audio():
         print("[+] " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + "  Transcribing Audio")
         result = model.transcribe(audio_path)
         print("Result is: ", result)
-        return jsonify({'message': f'File {file.filename} uploaded successfully.', 'transcript': f'{result["text"]}'}), 200         
+        return jsonify({'message': f'File {file.filename} uploaded successfully.', 'transcript': f'{result["text"]}'}), 200
+    
+def stream_ollama(superprompt):
+    response = ollama.chat(model='llama3', options=dict(num_tokens=100, temperature=0), messages=[
+		  {
+		    'role': 'user',
+		    'content': superprompt,
+		  },
+		], stream=True)
+    for message in response:
+        yield f"data: {message['message']['content']}\n\n"
 
 @app.route('/process_response', methods=['POST'])
 def process_response():       
@@ -38,26 +49,10 @@ prompt:  You are a child, genuinely interested in the conversation with their pa
 """
 
         print("[+]  " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + " Processing response in AI with ####\n" + superprompt + "\n####\n")
- 
-        if prompt == "":
-        	AIresponse = "[I'm not sure I understood, but I'll do my best.]"
-        else:
-        	response = ollama.chat(model='llama3', options=dict(num_tokens=100, temperature=0), messages=[
-		  {
-		    'role': 'user',
-		    'content': superprompt,
-		  },
-		]) 
-		
-        	print(response['message']['content'])
-        	try:
-        	    AIresponse = response['message']['content']
-        	except:
-        	    AIresponse = "Sorry. I don't understand."
-        print("[+] " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + AIresponse)
-        print("[+] " + datetime.datetime.now().strftime("%Y%d%M %H:%M:%S") + "Completed!")
-	
-        return jsonify({'message': f'Finished AI processing', 'transcript': f'{prompt}', 'response': f'{AIresponse}'}), 200         
+    
+        
+        return Response(stream_ollama(superprompt), mimetype='text/event-stream'), 200         
+
 
 
 @app.route('/')

@@ -112,20 +112,37 @@
                 document.getElementById('transcription').textContent = data.transcript;
                 const AIformData = new FormData();
                 AIformData.append('prompt', document.getElementById('transcription').textContent);
-                fetch('http://127.0.0.1:5000/process_response', {
-                    method: 'POST',
-                    body: AIformData,
-                })
-                .then(response => response.json())
-                .then(data => {
-                            document.getElementById('response').textContent = data.response;
-                            document.getElementById("startRecord").disabled = false;  
-                            clearInterval(timer);
-                        })  
-                .catch(error => console.error('Error:', error));
-                })  
-    .catch(error => console.error('Error:', error));
+                startStream(AIformData);
+            })
 
+    async function startStream(AIformData) {
+      const res = await fetch('http://127.0.0.1:5000/process_response', {
+        method: 'POST',
+        body: AIformData,
+      })
+      document.getElementById("startRecord").disabled = false;                
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      
+      document.getElementById('response').textContent = "";
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true }).replace(/^data:\s*/, '');
+          if (isPunctuation(chunk.charAt(0))) {
+            document.getElementById('response').textContent = document.getElementById('response').textContent.trimEnd();
+          }
+          document.getElementById('response').textContent = document.getElementById('response').textContent + chunk;
+      }
+      clearInterval(timer);
+    }
+
+    function isPunctuation(char) {
+      const punctuationRegex = /[!,\-./:;?^'_]/;
+      return punctuationRegex.test(char);
+    }
 }
 
 </script>
