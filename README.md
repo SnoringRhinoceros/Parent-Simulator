@@ -28,6 +28,7 @@ Installation instructions:
           Settings -> Environment Variables -> system settings -> C:\FFmpeg\bin
     - For Mac:
       - Install [homebrew](https://brew.sh/)
+      - run the 2 commands brew asks for after
       - brew install ffmpeg
 - Download [ollama](https://ollama.com/download)
 - ollama run llama3
