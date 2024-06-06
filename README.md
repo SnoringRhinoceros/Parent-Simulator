@@ -13,8 +13,8 @@ Installation instructions:
 - Download this repo (if you don't have git already)
     - Go to https://github.com/SnoringRhinoceros/Parent-Simulator 
     - Code -> download zip
-    - Extract zip
-    - cd into Parent-Simulator
+    - Extract zip wherever you want the project to be
+- cd into Parent-Simulator
 - python3 -m venv venv
 - venv/Scripts/activate (Windows) or source venv/bin/activate (Mac)
 - Download FFmpeg
